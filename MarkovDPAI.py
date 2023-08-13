@@ -4,30 +4,34 @@ from AI import AI
 from abc import ABC, abstractmethod
 
 
-
 class MarkovDPAI(AI):
 
-    def __init__(self, score_function: ScoreFunction):
-        self.score_function = score_function
+    def __init__(self, policy: Policy):
+        self.policy = policy
 
     def get_input(self, board: Board) -> Board.Move:
+        return self.policy.get_move(board)
+
+
+class Policy(ABC):
+
+    def get_move(self, board: Board) -> Board.Move:
+        # returns move with best score
         scores = {move: 0 for move in board.get_legal_moves()}
 
         for move in board.get_legal_moves():
-            scores[move] = self.score_function.eval_score(board.copy(), move)
+            scores[move] = self.eval_score(board.copy(), move)
+
         best_move = max(scores, key=lambda x: scores[x])
         return best_move
 
-
-
-class ScoreFunction(ABC):
-
     @abstractmethod
-    def eval_score(self, board:Board, move:Board.Move) -> int:
+    def eval_score(self, board: Board, move: Board.Move) -> int:
         pass
 
 
-class NextTurn(ScoreFunction):
-
-    def eval_score(self, board:Board, move:Board.Move) -> int:
+class NextTurn(Policy):
+    # returns the highest score on the next turn
+    def eval_score(self, board: Board, move: Board.Move) -> int:
         return board.move(move).get_score()
+
