@@ -10,6 +10,10 @@ class AI(Input):
 
     @abstractmethod
     def get_input(self, board: Board) -> Board.Move:
+        """
+        :param board: Board object representing current board state
+        :return: next move to apply to given Board
+        """
         pass
 
 
