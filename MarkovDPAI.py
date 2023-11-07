@@ -15,27 +15,17 @@ class MarkovDPAI(AI):
         self.policy = policy
 
     def get_input(self, board: Board) -> Board.Move:
-
-        if len(board.get_empty_squares()) == 0:
-            print('minmax')
-            temp_policy = MinMax(20000)
-            return temp_policy.get_move(board)
-        elif len(board.get_empty_squares()) <= 2 and max(board.get_tiles()) >= 1024:
-            print('expectimax600')
-            temp_policy = ExpectiMax(800)
-            return temp_policy.get_move(board)
-        elif len(board.get_empty_squares()) <= 4 and max(board.get_tiles()) >= 1024:
-            print('expectimax200')
-            temp_policy = ExpectiMax(300)
-            return temp_policy.get_move(board)
-        elif len(board.get_empty_squares()) <= 4:
-            self.policy.set_depth(800)
-        elif board.get_legal_moves() == 2:
-            self.policy.set_depth(400)
-        else:
-            self.policy.set_depth(100)
-
+        self.policy.set_depth(3)
+        if len(board.get_empty_squares()) <= 0:
+            self.policy.set_depth(8)
+        elif len(board.get_empty_squares()) <= 2:
+            self.policy.set_depth(6)
+        elif len(board.get_empty_squares()) <= 8:
+            self.policy.set_depth(4)
         return self.policy.get_move(board)
+
+
+
 
 
 class Policy(ABC):
@@ -140,6 +130,7 @@ class ExpectiMax(Policy):
         self.num_games = num_games
 
 
+
     def set_depth(self, depth: int):
         self.num_games = depth
 
@@ -166,10 +157,89 @@ class ExpectiMax(Policy):
                     game_board.set_random_square()
                     if not game_board.get_legal_moves():
                         gameover = True
+
                 board_score += game_board.get_score()
-            score += board_tuple[0]*board_score/self.num_games
+
+            # encourage monotonic runs by adding tile difference penalty
+            penalty = 0
+            tiles = board.get_tiles()
+            for j, tile in enumerate(tiles):
+                if j - 4 >= 0:
+                    penalty += abs(tile - tiles[j - 4])
+                if j + 4 <= 15:
+                    penalty += abs(tile - tiles[j + 4])
+                if j - 1 >= 0:
+                    penalty += abs(tile - tiles[j - 1])
+                if j + 1 <= 15:
+                    penalty += abs(tile - tiles[j - 1])
+            score += board_tuple[0]*(board_score/self.num_games - penalty)
 
         return score // len(boards)
 
 
 
+class ExpectiMax2(Policy):
+    def __init__(self, num_games: int = 300, depth: int = 4):
+        self.num_games = num_games
+        self.depth = depth
+
+    def set_depth(self, depth: int):
+        self.depth = depth
+
+    def eval_score(self, board: Board, move: Board.Move) -> int:
+        board = board.move(move)
+        boards = []
+        prev_boards = [(1, board)]
+        for i in range(self.depth):
+            for board_tuple in prev_boards:
+                board = board_tuple[1]
+                for space in board.get_empty_squares():
+                    boards.append((0.1 * board_tuple[0], board.copy().set_tile_value([space], [4])))
+                    boards.append((0.9 * board_tuple[0], board.copy().set_tile_value([space], [2])))
+            if boards:
+                prev_boards = boards.copy()
+                boards = []
+            else:
+                break
+
+        boards = prev_boards
+        print(f'boards: {len(boards)}')
+
+        scores = [-1000000]
+        for board_tuple in boards:
+            '''
+            board_score = 0.0
+            board = board_tuple[1]
+            for i in range(self.num_games):
+                game_board = board.copy()
+                gameover = False
+                if not game_board.get_legal_moves():
+                    gameover = True
+                while not gameover:
+                    moves = game_board.get_legal_moves()
+                    move = random.choice(moves)
+                    game_board.move(move)
+                    game_board.set_random_square()
+                    if not game_board.get_legal_moves():
+                        gameover = True
+
+                board_score += game_board.get_score()
+            '''
+            board_score = sum(board.get_tiles())+max(board.get_tiles())
+            # encourage monotonic runs by adding tile difference penalty
+            penalty = 0
+            tiles = board.get_tiles()
+            if not board.get_legal_moves():
+                penalty = 10000000
+            for j, tile in enumerate(tiles):
+                if j - 4 >= 0:
+                    penalty += abs(tile - tiles[j - 4])
+                if j + 4 <= 15:
+                    penalty += abs(tile - tiles[j + 4])
+                if j - 1 >= 0:
+                    penalty += abs(tile - tiles[j - 1])
+                if j + 1 <= 15:
+                    penalty += abs(tile - tiles[j - 1])
+            scores.append(board_tuple[0] * (board_score*2 - penalty))
+
+        return int(sum(scores)/ len(scores))
