@@ -179,7 +179,7 @@ class ExpectiMax(Policy):
                 if j + 1 <= 15:
                     tile2 = 0 if tiles[j + 1] == 0 else math.log2(tiles[j + 1])
                     penalty += abs(tile * (pow(-1, (j // 4))) - tile2 * (pow(-1, (j // 4))))
-            score += board_tuple[0] * (board_score / self.num_games*4 - penalty)
+            score += board_tuple[0] * (board_score / self.num_games - 4*penalty)
 
         return score // len(boards)
 
@@ -196,12 +196,13 @@ class ExpectiMax2(Policy):
         board = board.move(move)
         boards = []
         prev_boards = [(1, board)]
-        for i in range(self.depth):
+        while len(prev_boards) < 8000:
             for board_tuple in prev_boards:
                 board = board_tuple[1]
-                for space in board.get_empty_squares():
-                    boards.append((0.1 * board_tuple[0], board.copy().set_tile_value([space], [4])))
-                    boards.append((0.9 * board_tuple[0], board.copy().set_tile_value([space], [2])))
+                empty_squares = board.get_empty_squares()
+                for space in empty_squares:
+                    boards.append((len(empty_squares) * 0.1 * board_tuple[0], board.copy().set_tile_value([space], [4])))
+                    boards.append((len(empty_squares) * 0.9 * board_tuple[0], board.copy().set_tile_value([space], [2])))
             if boards:
                 prev_boards = boards.copy()
                 boards = []
@@ -231,23 +232,22 @@ class ExpectiMax2(Policy):
 
                 board_score += game_board.get_score()
             '''
-            max_tile = max(board.get_tiles())
-            board_score = sum(board.get_tiles()) + max_tile
+            board_score = board.get_score()
             # encourage monotonic runs by adding tile difference penalty
             penalty = 0
             tiles = board.get_tiles()
             if not board.get_legal_moves():
-                penalty = 10000000
+                penalty = 10**10
+
+            if max(tiles) > tiles[15]:
+                penalty += max(tiles)
+
+            path = [3,2,1,0,4,5,6,7,11,10,9,8,12,13,14,15]
             for j, tile in enumerate(tiles):
-                tile = 0 if tile == 0 else math.log2(tile)
-
-                if j < 12:
+                if j < 15:
                     # tile2 = 0 if tiles[j + 4] == 0 else math.log2(tiles[j + 4])
-                    penalty += abs(tile - tiles[j + 4])
+                    penalty += abs(tile - tiles[path[j+1]])
 
-                if j % 4 != 3:
-                    # tile2 = 0 if tiles[j + 1] == 0 else math.log2(tiles[j + 1])
-                    penalty += abs(tile - tiles[j + 1])
-            scores.append(board_tuple[0] * (board_score*4 - penalty))
-
-        return int(sum(scores) / len(scores))
+            scores.append(board_tuple[0] * (board_score * 4 - penalty))
+        print(sum(scores))
+        return sum(scores)
