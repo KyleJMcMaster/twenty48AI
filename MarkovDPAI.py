@@ -6,7 +6,7 @@ import random
 from twenty48.Board import Board
 from AI import AI
 from abc import ABC, abstractmethod
-
+import time
 
 class MarkovDPAI(AI):
     """
@@ -17,13 +17,13 @@ class MarkovDPAI(AI):
         self.policy = policy
 
     def get_input(self, board: Board) -> Board.Move:
-        self.policy.set_depth(3)
+        '''self.policy.set_depth(3)
         if len(board.get_empty_squares()) <= 0:
             self.policy.set_depth(8)
         elif len(board.get_empty_squares()) <= 2:
             self.policy.set_depth(6)
         elif len(board.get_empty_squares()) <= 8:
-            self.policy.set_depth(4)
+            self.policy.set_depth(4)'''
         return self.policy.get_move(board)
 
 
@@ -54,6 +54,7 @@ class NextTurn(Policy):
     """
 
     def eval_score(self, board: Board, move: Board.Move) -> int:
+        time.sleep(0.1)
         return board.move(move).get_score()
 
 
@@ -128,7 +129,7 @@ class ExpectiMax(Policy):
     Expectimax with depth of n
     """
 
-    def __init__(self, num_games: int = 300):
+    def __init__(self, num_games: int = 15):
         self.num_games = num_games
 
     def set_depth(self, depth: int):
@@ -161,25 +162,6 @@ class ExpectiMax(Policy):
                 board_score += game_board.get_score()
 
             # encourage monotonic runs by adding tile difference penalty
-            penalty = 0
-            tiles = board.get_tiles()
-            if not board.get_legal_moves():
-                penalty = 1000000000000
-            for j, tile in enumerate(tiles):
-                tile = 0 if tile == 0 else math.log2(tile)
-                if j - 4 >= 0:
-                    tile2 = 0 if tiles[j - 4] == 0 else math.log2(tiles[j - 4])
-                    penalty += 2*abs(tile - tile2)
-                if j + 4 <= 15:
-                    tile2 = 0 if tiles[j + 4] == 0 else math.log2(tiles[j + 4])
-                    penalty += 2*abs(tile2 - tile)
-                if j - 1 >= 0:
-                    tile2 = 0 if tiles[j - 1] == 0 else math.log2(tiles[j - 1])
-                    penalty += abs(tile2 * (pow(-1, (j // 4))) - tile * (pow(-1, (j // 4))))
-                if j + 1 <= 15:
-                    tile2 = 0 if tiles[j + 1] == 0 else math.log2(tiles[j + 1])
-                    penalty += abs(tile * (pow(-1, (j // 4))) - tile2 * (pow(-1, (j // 4))))
-            score += board_tuple[0] * (board_score / self.num_games - 4*penalty)
 
         return score // len(boards)
 
@@ -236,18 +218,26 @@ class ExpectiMax2(Policy):
             # encourage monotonic runs by adding tile difference penalty
             penalty = 0
             tiles = board.get_tiles()
+            max_tile = max(tiles)
             if not board.get_legal_moves():
-                penalty = 10**15
+                penalty = 10**8
 
             if max(tiles) > tiles[15]:
-                penalty += 2 * max(tiles)
+                penalty += 2 * max_tile
 
             path = [3,2,1,0,4,5,6,7,11,10,9,8,12,13,14,15]
+
+            for j, tile in enumerate(path):
+                if j < 15 and tiles[tile] > tiles[path[j+1]]:
+                    penalty += 1 * (tiles[tile] - tiles[path[j+1]])
+
+            '''
             for j, tile in enumerate(path):
                 if j < 15:
                     penalty += abs(tiles[tile] - tiles[path[j + 1]])
                 if tile < 12:
                     penalty += abs(tiles[tile] - tiles[tile + 4])
+            '''
 
             scores.append(board_tuple[0] * (board_score * 3 - penalty))
         print(sum(scores))

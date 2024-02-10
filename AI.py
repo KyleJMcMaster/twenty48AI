@@ -3,6 +3,7 @@ from twenty48.Board import Board
 from twenty48.Input import Input
 from abc import abstractmethod
 from typing import List
+import time
 import random
 
 
@@ -30,4 +31,5 @@ class RandomAI(AI):
 
     def get_input(self, board: Board) -> Board.Move:
         move = random.choices(list(Board.Move), self.weights)[0]
+        time.sleep(0.1)
         return move
