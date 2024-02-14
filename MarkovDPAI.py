@@ -220,7 +220,7 @@ class ExpectiMax2(Policy):
             tiles = board.get_tiles()
             max_tile = max(tiles)
             if not board.get_legal_moves():
-                penalty = 10**8
+                penalty = 10**13
 
             if max(tiles) > tiles[15]:
                 penalty += 2 * max_tile
@@ -229,7 +229,7 @@ class ExpectiMax2(Policy):
 
             for j, tile in enumerate(path):
                 if j < 15 and tiles[tile] > tiles[path[j+1]]:
-                    penalty += 1 * (tiles[tile] - tiles[path[j+1]])
+                    penalty += 4 * (tiles[tile] - tiles[path[j+1]])
 
             '''
             for j, tile in enumerate(path):
