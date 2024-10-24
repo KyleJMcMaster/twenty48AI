@@ -465,7 +465,7 @@ class ExpectiMax6(Policy):
 
     def __init__(self, pos_pen = 0, path_pen=7.447177595213156, empty_pen = 0, loss_penalty = 8.661335883267595, score_factor=1.920943938130582):
         self.loss_penalty = loss_penalty
-        self.depth = 3
+        self.depth = 4
         self.position_penalty = pos_pen
         self.path_penalty_factor = path_pen
         self.empty_space_pen = empty_pen
