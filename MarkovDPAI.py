@@ -7,6 +7,7 @@ from twenty48.Board import Board
 from AI import AI
 from abc import ABC, abstractmethod
 import time
+import ctypes
 
 class MarkovDPAI(AI):
     """
@@ -536,3 +537,50 @@ class ScoreEst:
 
             board_score += game_board.get_score()
         return board_score/num_games
+    
+
+class ExpectiMax7(AI):
+
+    def __init__(self, depth=6, path_pen=10.282501707392333, loss_penalty = 0.0, score_factor=4.480025944804589):
+        self.loss_penalty = loss_penalty
+        self.depth = depth
+        self.position_penalty = 0
+        self.path_penalty_factor = path_pen
+        self.empty_space_pen = 0
+        self.score_factor = score_factor
+
+        self.params = [
+            self.depth,
+            self.path_penalty_factor,
+            self.loss_penalty,
+            self.score_factor
+        ]
+
+
+        self.lib = ctypes.CDLL('./twency48.so')
+        self.lib.get_next_move.argtypes = (ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.POINTER(ctypes.c_double))
+        self.lib.get_next_move.restype = ctypes.c_int
+
+        self.c_params = (ctypes.c_double * len(self.params))(*self.params)
+
+
+
+
+    def get_input(self, board:Board) -> Board.Move:
+        score = board.get_score()
+        tiles = board.get_tiles()
+        
+        c_tiles = (ctypes.c_int * len(tiles))(*tiles)
+        result = self.lib.get_next_move(c_tiles, score, self.c_params)
+        move = board.Move.UP
+        if result == 2:
+            move = Board.Move.UP
+        if result == 3:
+            move = Board.Move.DOWN
+        if result == 1:
+            move = Board.Move.LEFT
+        if result == 0:
+            move = Board.Move.RIGHT
+        # print(move)
+        return move
+    
