@@ -6,7 +6,6 @@ from abc import ABC, abstractmethod
 import tkinter as tk
 from twenty48.Board import Board
 from numpy import ndarray
-import colr
 
 
 class Display(ABC):
@@ -72,33 +71,33 @@ class WindowDisplay(Display):
         self.window.update()
 
 
-class TextDisplay(Display):
+# class TextDisplay(Display):
 
-    def __init__(self):
-        pass
+#     def __init__(self):
+#         pass
 
-    def display_board(self, board: Board):
-        tile_colours = {
-            2048: "EDC22E",
-            1024: "#EDC23F",
-            512: "#EDC850",
-            256: "#EDCC61",
-            128: "#EDCF72",
-            64: "#F65E3B",
-            32: "#F67C5F",
-            16: "#F59563",
-            8: "#F2B179",
-            4: "#EDE0C8",
-            2: "#EEE4DA",
-            0: "#3e403f"
-        }
-        print(f"score: {board.get_score()}",end="\n")
-        for i in range(16):
-            tile = board.get_tile(i)
-            print(colr.color(f"{tile}\t".expandtabs(6), back=tile_colours[tile], fore="000000"),
-                  end=" ")
-            if i % 4 == 3:
-                print("\n")
+#     def display_board(self, board: Board):
+#         tile_colours = {
+#             2048: "EDC22E",
+#             1024: "#EDC23F",
+#             512: "#EDC850",
+#             256: "#EDCC61",
+#             128: "#EDCF72",
+#             64: "#F65E3B",
+#             32: "#F67C5F",
+#             16: "#F59563",
+#             8: "#F2B179",
+#             4: "#EDE0C8",
+#             2: "#EEE4DA",
+#             0: "#3e403f"
+#         }
+#         print(f"score: {board.get_score()}",end="\n")
+#         for i in range(16):
+#             tile = board.get_tile(i)
+#             print(colr.color(f"{tile}\t".expandtabs(6), back=tile_colours[tile], fore="000000"),
+#                   end=" ")
+#             if i % 4 == 3:
+#                 print("\n")
 
 
 class NoneDisplay(Display):
