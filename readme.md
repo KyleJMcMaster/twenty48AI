@@ -2,14 +2,14 @@
 
 build with AI model with `make -f twency48/build/makefile`
 
-from 'Twenty48' directory
+from root (twenty48AI) directory
 
-run with by changing which function is commented out in the main function of main.py.
+select mode by changing which function is commented out in the main function of main.py.
 
 Run with `python3 main.py`.
 
 
-## Dependencies and problems
+## Dependencies
 
 `pip install twenty48`
 
