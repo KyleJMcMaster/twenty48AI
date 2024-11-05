@@ -541,12 +541,14 @@ void place_random_tile(Board* board){
     
   
 
-bool run_trial_until_win(Board* board, int stop){
+bool run_trial_until_win(Board* board, Move move, int stop){
     // run a trial until either the game is won or lost and return the result
     // stop is an exp rep value which specifies the maximum tile required to consider the game as won
 
-    int c = 0;
-    Move next_move;
+    Move next_move = move;
+    Board b2;
+    copy_board_values(board, &b2);
+    apply_move(&b2, next_move);
 
     while(true){
         int valid_moves[4];
@@ -555,13 +557,11 @@ bool run_trial_until_win(Board* board, int stop){
         if(!num_valid_moves){
             return 0;
         }
-        int index = rand() % (num_valid_moves);
-        next_move = valid_moves[index];      
+        next_move = valid_moves[rand() % (num_valid_moves)];      
         apply_move(board, next_move);
         
         for(int i = 0; i < 16; i++){
             if (board->tiles[i] >= stop){
-                print_board(board);
                 return 1;
             }
         }
@@ -570,56 +570,140 @@ bool run_trial_until_win(Board* board, int stop){
     }
 }
 
+void optimal_weights(double *w, double *means, double w_tolerance){
+    // get the values for w*
+    
+}
 int track_and_stop(Board* board, double* params){
+    // track and stop algorithm described by Garivier and Kaufmann 2016
     int n[4] = {0,0,0,0};
     double means[4] = {0,0,0,0};
+    int S[4] = {0,0,0,0};
     double confidence = params[0];
     int max_trials = params[1];
     double w_tolerance = params[2];
     int max_w_iterations = params[3];
-
+    int win_threshold = params[4];
+    
+    int num_max_arms;
+    int max_arms[4]; // refers to moves [0...3]
+    double max_arm_val;
+    Move best;
+    //step1
+    int n_best;
+    int s_best;
+    double mean_best;
+    double avg_means[4];
+    //step2
+    double min_score;
+    double score;
+    //step3
+    int min_n;
+    int min_n_index;
     double exploration_threshold;
-    Move min_underexplored_arm;
-    Move next_arm;
-    Move best_arm = RIGHT;
-    double W_star;
-    double best_arm_score;
+    double w[4];
+    int max_score_index;
+    int max_score;
 
     srand(time(NULL));
 
     //step 0: run first trial
+    for(int i = 0; i < 4; i++){
+        n[i] = 1;
+        S[i] = run_trial_until_win(board, i, win_threshold);
+        means[i] = S[i];
+    }
 
-    for(int t = 0; t < max_trials; t++){
+    for(int t = 4; t < max_trials; t++){
+        // step 1: find empirical best arm(s)
+        num_max_arms = 1;
+        max_arm_val = means[0];
+        max_arms[0] = 0;
+        for(int i = 1; i < 4; i++){
+            if(means[i] > max_arm_val){
+                num_max_arms = 1;
+                max_arm_val = means[i];
+                max_arms[0] = i;
+            }
+            else if(means[i] == max_arm_val){
+                max_arms[num_max_arms] = i;
+                num_max_arms++; 
+            }
+        }
+        best = max_arms[0]; // index of best arm
+
+        //if multiple best arms, draw one at random, no need to check stopping statistic
+        if(num_max_arms>1){
+            best = max_arms[rand() % (num_max_arms)];
+            t+=1;
+            S[best] += run_trial_until_win(board, best, win_threshold);
+            n[best]++;
+            means[best] = S[best]/n[best];
+            continue;
+        }
+        //otherwise, check stopping statistic
+        // step 2: calculate stopping statistic
         
-        //step 1: check for underexplored arms, and find minimum
-        min_underexplored_arm = NONE; //defined as -1 in enum
-        exploration_threshold = sqrt(t) - 2;
+        mean_best = means[best];
+        n_best = n[best];
 
         for(int i = 0; i < 4; i++){
-            if(n[i] < exploration_threshold && (min_underexplored_arm == -1 || n[i] < n[min_underexplored_arm])){
-                min_underexplored_arm == i;
+            avg_means[i] = (means[i] + mean_best)/2;
+        }
+
+        min_score = INFINITY;
+        for(int i = 0; i < 4; i ++){
+            if(i == best){continue;} // skip best
+            score = n_best*KL_divergence(mean_best, avg_means[i]) + n[i]*KL_divergence(means[i], avg_means[i]);
+            min_score = (score < min_score) ? score : min_score;
+        }
+
+        if(min_score > log(6*t/confidence)){ //log((log(t)+1)/delta) is alternative stopping point
+            // stop
+            return best;
+        }
+
+        // step 3: pick arm to sample
+        min_n_index = 0;
+        min_n = n[0];
+        exploration_threshold = sqrt(t) - 2;
+        for(int i = 1; i < 4; i ++){
+            if(n[i] < min_n){
+                min_n = n[i];
+                min_n_index = i;
             }
         }
-
-        //step 2: select arm using D-tracking
-
-        if (min_underexplored_arm != NONE){
-            // forced exploration
-            next_arm = min_underexplored_arm;
+        if(min_n < exploration_threshold){
+            // enter forced exploration
+            best = min_n_index;
+            t+=1;
+            S[best] += run_trial_until_win(board, best, win_threshold);
+            n[best]++;
+            means[best] = S[best]/n[best];
+            continue;
         }
-        else{
-            // direct tracking
-            W_star = compute_w_star(means, best_arm, w_tolerance, max_w_iterations);
-            best_arm_score = t * W_star - n[0];
-            next_arm = 0;
-            for(int j = 1; j < 4; j++){
-                
+        // optimal arm selection
+
+        optimal_weights(w, means, w_tolerance);
+        max_score_index = 0;
+        max_score = w[0] - (double)n[0]/(double)t;
+        for(int i = 1; i < 4; i++){
+            score = w[i] - (double)n[i]/(double)t;
+            if(max_score < w[i] - (double)n[i]/(double)t){
+                max_score = score;
+                max_score_index = i;
             }
         }
-
-
-
+        best = max_score_index;
+        t+=1;
+        S[best] += run_trial_until_win(board, best, win_threshold);
+        n[best]++;
+        means[best] = S[best]/n[best];
+        continue;
+        
     }
+    return 0;
+
     
 
     
@@ -631,7 +715,7 @@ int get_MCTS_next_move(int* tiles, int score, double* params){
         [1]: int: max trials if confidence is not met
         [2]: double: tolerance for W*
         [3]: int: max iterations for W* if tolerance is not met
-        [4]:
+        [4]: int: value for 'win' condition in exp value
      returns the best move from this state
     */
 }
@@ -665,7 +749,7 @@ int main(){
         0,0,6,0},
         0
     };
-    printf("%d\n", run_trial_until_win(&b1, 8));
+    printf("%d\n", run_trial_until_win(&b1, 0, 8));
     }
     
 
