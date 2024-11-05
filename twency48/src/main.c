@@ -483,7 +483,7 @@ double KL_divergence(double p, double q){
     // p is the probability of dist 1 being 1
     // q is the probability of dist 2 being 1
     if(p == q){return 0;}
-    else if(q == 0 || q == 1){return DBL_MAX;} //avoid log(0)
+    else if(q == 0 || q == 1){return (p == 0) ? 0.0 : INFINITY;} //avoid log(0)
     else{
         return p * (log(p) - log(q)) + (1-p)*(log(1-p)-log(1-q));
     }
@@ -501,13 +501,14 @@ double compute_w_star(double* means, int best_arm_index, double tolerance, int m
     
 
     for(int i = 0; i < max_iterations; i ++){
-        W_mid = (W_min + W_max)/2;
+        W_mid = (W_min + W_max)/2.0;
         feasible = true;
         for(int j = 0; j < 4; j++){
             if(j != best_arm_index){
                 KL_d = KL_divergence(best_mean, means[j]);
                 if(KL_d == 0 || W_mid * KL_d > 1){
                     feasible = false;
+                    printf("%d\n", i);
                     break;
                 }
             }
@@ -521,10 +522,52 @@ double compute_w_star(double* means, int best_arm_index, double tolerance, int m
         }
 
         if (W_max - W_min < tolerance){
+            printf("%d\n", i);
             break;
         }
     }
     return W_min;
+}
+void place_random_tile(Board* board){
+    // place a tile in a randomly selected empty square
+    
+    int empty_tiles[15];
+    int len_empty_tiles = get_empty_tiles(board, empty_tiles);
+    int tile = empty_tiles[rand() % (len_empty_tiles)];
+    int tile_value = ((double)rand()/(double)RAND_MAX > 0.1) ? 1 : 2;
+
+    board->tiles[tile] = tile_value;
+    }
+    
+  
+
+bool run_trial_until_win(Board* board, int stop){
+    // run a trial until either the game is won or lost and return the result
+    // stop is an exp rep value which specifies the maximum tile required to consider the game as won
+
+    int c = 0;
+    Move next_move;
+
+    while(true){
+        int valid_moves[4];
+        int num_valid_moves = get_valid_moves(board, valid_moves);
+        
+        if(!num_valid_moves){
+            return 0;
+        }
+        int index = rand() % (num_valid_moves);
+        next_move = valid_moves[index];      
+        apply_move(board, next_move);
+        
+        for(int i = 0; i < 16; i++){
+            if (board->tiles[i] >= stop){
+                print_board(board);
+                return 1;
+            }
+        }
+        place_random_tile(board);
+      
+    }
 }
 
 int track_and_stop(Board* board, double* params){
@@ -541,6 +584,10 @@ int track_and_stop(Board* board, double* params){
     Move best_arm = RIGHT;
     double W_star;
     double best_arm_score;
+
+    srand(time(NULL));
+
+    //step 0: run first trial
 
     for(int t = 0; t < max_trials; t++){
         
@@ -591,75 +638,35 @@ int get_MCTS_next_move(int* tiles, int score, double* params){
 
 
 int main(){
-    // srand(time(NULL));
+    double means[4] = {0.2,0.4,0.7,0.6};
+    int best = 1;
+    double tolerance = 1e-5;
+    int max_iter = 10000;
 
+    printf("%f\n", compute_w_star(means, 0, tolerance, max_iter));
+    printf("%f\n", compute_w_star(means, 1, tolerance, max_iter));
+    printf("%f\n", compute_w_star(means, 2, tolerance, max_iter));
+    printf("%f\n", compute_w_star(means, 3, tolerance, max_iter));
+    srand(time(NULL));
 
-    // Board b1 = {
-    //     {0,0,0,1,
-    //     0,0,0,1,
-    //     0,0,0,0,
-    //     0,0,0,0},
-    //     0
-    // };
-    // Board b2 = {
-    //     {0,0,0,1,
-    //     9,1,2,1,
-    //     8,1,1,2,
-    //     8,2,2,1},
-    //     0
-    // };
-
-    // Board b3;
-
-    // printf("%d\n", b2.score);   
-    // print_board(&b2);
-    // apply_move(&b2, DOWN);
-    // print_board(&b2);
-    // copy_board_values(&b2, &b3);
-    // printf("%d\n", b3.score);
-    // print_board(&b3);
-    // apply_move(&b3, RIGHT);
-    // printf("%d\n", b3.score);
-    // print_board(&b3);
-    // print_board(&b2);
-    // int m[4];
-    // printf("%d\n", get_valid_moves(&b3,m));
-    // printf("is_valid: %d\n\n", check_valid_move(&b2, RIGHT));
-    // printf("is_valid: %d\n\n", check_valid_move(&b3, RIGHT));
-
-    
-    // int tiles[16];
-    // powerep_to_intrep((b2.tiles), tiles);
-
-    // char tiles2[16];
-    // intrep_to_powerrep(tiles2, tiles);
-
-    // for(int i = 0; i < 16; i++){
-    //     printf("%d   ", tiles2[i]);
-    //     if(i%4==3){
-    //         printf("\n");
-    //     }
-    // }
-    // printf("\n");
-
-    // for(int i = 0; i < 16; i++){
-    //     printf("%d   ", b2.tiles[i]);
-    //     if(i%4==3){
-    //         printf("\n");
-    //     }
-    // }
-    // printf("\n");
-
-    // double params[4]={
-    // 7,
-    // 7.447177595213156,
-    // 8.661335883267595,
-    // 1.920943938130582
-    // };
-    // Move next_move;
-    // next_move = get_next_move(tiles, 1000, params);
-    // printf("%d\n", next_move);
-
+    Board b1 = {
+        {0,0,0,1,
+        0,0,0,1,
+        0,6,0,0,
+        0,0,6,0},
+        0
+    };
+    srand(time(NULL));
+    for(int i = 0; i < 1000; i++){
+        Board b1 = {
+        {0,0,0,1,
+        0,0,0,1,
+        0,6,0,0,
+        0,0,6,0},
+        0
+    };
+    printf("%d\n", run_trial_until_win(&b1, 8));
+    }
     
 
     return 1;
