@@ -3,7 +3,8 @@
 #include <time.h>
 #include <float.h>
 #include <stdbool.h>
-#include<unistd.h>
+#include <unistd.h>
+#include <math.h>
 
 
 
@@ -20,7 +21,8 @@ typedef enum{
     UP = 2,
     DOWN = 3,
     LEFT = 1,
-    RIGHT = 0
+    RIGHT = 0,
+    NONE = -1
 }Move;
 
 static Move moves[4] = {UP, DOWN, LEFT, RIGHT};
@@ -476,67 +478,177 @@ int get_next_move(int* tiles, int score, double* params){
 
 
 }
+double KL_divergence(double p, double q){
+    //Gets the kl divergence KL(p||q) for two bernoulli variables
+    // p is the probability of dist 1 being 1
+    // q is the probability of dist 2 being 1
+    if(p == q){return 0;}
+    else if(q == 0 || q == 1){return DBL_MAX;} //avoid log(0)
+    else{
+        return p * (log(p) - log(q)) + (1-p)*(log(1-p)-log(1-q));
+    }
+}
+
+double compute_w_star(double* means, int best_arm_index, double tolerance, int max_iterations){
+    //computes the minimum sample complexity to identify best arm with confidence level (1-delta) using bisection method
+
+    double W_min = 0;
+    double W_max = 1;
+    double W_mid;
+    double KL_d;
+    double best_mean = means[best_arm_index];
+    bool feasible;
+    
+
+    for(int i = 0; i < max_iterations; i ++){
+        W_mid = (W_min + W_max)/2;
+        feasible = true;
+        for(int j = 0; j < 4; j++){
+            if(j != best_arm_index){
+                KL_d = KL_divergence(best_mean, means[j]);
+                if(KL_d == 0 || W_mid * KL_d > 1){
+                    feasible = false;
+                    break;
+                }
+            }
+        }
+
+        if(feasible){
+            W_min = W_mid; // increase W_min to find max feasible
+        }
+        else{
+            W_max = W_mid; // reduce to find max feasible
+        }
+
+        if (W_max - W_min < tolerance){
+            break;
+        }
+    }
+    return W_min;
+}
+
+int track_and_stop(Board* board, double* params){
+    int n[4] = {0,0,0,0};
+    double means[4] = {0,0,0,0};
+    double confidence = params[0];
+    int max_trials = params[1];
+    double w_tolerance = params[2];
+    int max_w_iterations = params[3];
+
+    double exploration_threshold;
+    Move min_underexplored_arm;
+    Move next_arm;
+    Move best_arm = RIGHT;
+    double W_star;
+    double best_arm_score;
+
+    for(int t = 0; t < max_trials; t++){
+        
+        //step 1: check for underexplored arms, and find minimum
+        min_underexplored_arm = NONE; //defined as -1 in enum
+        exploration_threshold = sqrt(t) - 2;
+
+        for(int i = 0; i < 4; i++){
+            if(n[i] < exploration_threshold && (min_underexplored_arm == -1 || n[i] < n[min_underexplored_arm])){
+                min_underexplored_arm == i;
+            }
+        }
+
+        //step 2: select arm using D-tracking
+
+        if (min_underexplored_arm != NONE){
+            // forced exploration
+            next_arm = min_underexplored_arm;
+        }
+        else{
+            // direct tracking
+            W_star = compute_w_star(means, best_arm, w_tolerance, max_w_iterations);
+            best_arm_score = t * W_star - n[0];
+            next_arm = 0;
+            for(int j = 1; j < 4; j++){
+                
+            }
+        }
+
+
+
+    }
+    
+
+    
+}
+
+int get_MCTS_next_move(int* tiles, int score, double* params){
+    /*takes in the set of tiles (in int rep form), the current score, and a set of parameters
+        [0]: double: delta (confidence in best arm selection)
+        [1]: int: max trials if confidence is not met
+        [2]: double: tolerance for W*
+        [3]: int: max iterations for W* if tolerance is not met
+        [4]:
+     returns the best move from this state
+    */
+}
 
 
 int main(){
-    srand(time(NULL));
+    // srand(time(NULL));
 
 
-    Board b1 = {
-        {0,0,0,1,
-        0,0,0,1,
-        0,0,0,0,
-        0,0,0,0},
-        0
-    };
-    Board b2 = {
-        {0,0,0,1,
-        9,1,2,1,
-        8,1,1,2,
-        8,2,2,1},
-        0
-    };
+    // Board b1 = {
+    //     {0,0,0,1,
+    //     0,0,0,1,
+    //     0,0,0,0,
+    //     0,0,0,0},
+    //     0
+    // };
+    // Board b2 = {
+    //     {0,0,0,1,
+    //     9,1,2,1,
+    //     8,1,1,2,
+    //     8,2,2,1},
+    //     0
+    // };
 
-    Board b3;
+    // Board b3;
 
-    printf("%d\n", b2.score);   
-    print_board(&b2);
-    apply_move(&b2, DOWN);
-    print_board(&b2);
-    copy_board_values(&b2, &b3);
-    printf("%d\n", b3.score);
-    print_board(&b3);
-    apply_move(&b3, RIGHT);
-    printf("%d\n", b3.score);
-    print_board(&b3);
-    print_board(&b2);
-    int m[4];
-    printf("%d\n", get_valid_moves(&b3,m));
-    printf("is_valid: %d\n\n", check_valid_move(&b2, RIGHT));
-    printf("is_valid: %d\n\n", check_valid_move(&b3, RIGHT));
+    // printf("%d\n", b2.score);   
+    // print_board(&b2);
+    // apply_move(&b2, DOWN);
+    // print_board(&b2);
+    // copy_board_values(&b2, &b3);
+    // printf("%d\n", b3.score);
+    // print_board(&b3);
+    // apply_move(&b3, RIGHT);
+    // printf("%d\n", b3.score);
+    // print_board(&b3);
+    // print_board(&b2);
+    // int m[4];
+    // printf("%d\n", get_valid_moves(&b3,m));
+    // printf("is_valid: %d\n\n", check_valid_move(&b2, RIGHT));
+    // printf("is_valid: %d\n\n", check_valid_move(&b3, RIGHT));
 
     
-    int tiles[16];
-    powerep_to_intrep((b2.tiles), tiles);
+    // int tiles[16];
+    // powerep_to_intrep((b2.tiles), tiles);
 
-    char tiles2[16];
-    intrep_to_powerrep(tiles2, tiles);
+    // char tiles2[16];
+    // intrep_to_powerrep(tiles2, tiles);
 
-    for(int i = 0; i < 16; i++){
-        printf("%d   ", tiles2[i]);
-        if(i%4==3){
-            printf("\n");
-        }
-    }
-    printf("\n");
+    // for(int i = 0; i < 16; i++){
+    //     printf("%d   ", tiles2[i]);
+    //     if(i%4==3){
+    //         printf("\n");
+    //     }
+    // }
+    // printf("\n");
 
-    for(int i = 0; i < 16; i++){
-        printf("%d   ", b2.tiles[i]);
-        if(i%4==3){
-            printf("\n");
-        }
-    }
-    printf("\n");
+    // for(int i = 0; i < 16; i++){
+    //     printf("%d   ", b2.tiles[i]);
+    //     if(i%4==3){
+    //         printf("\n");
+    //     }
+    // }
+    // printf("\n");
 
     // double params[4]={
     // 7,
@@ -547,6 +659,8 @@ int main(){
     // Move next_move;
     // next_move = get_next_move(tiles, 1000, params);
     // printf("%d\n", next_move);
+
+    
 
     return 1;
 
