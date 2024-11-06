@@ -584,3 +584,53 @@ class ExpectiMax7(AI):
         # print(move)
         return move
     
+class MCTS(AI):
+
+    def __init__(self, 
+                 confidence = 0.99,
+                 max_trials = 1000000,
+                 tolerance = 1e-11,
+                 max_iterations =100000):
+        self.confidence =confidence
+        self.max_trials =max_trials
+        self.tolerance =tolerance
+        self.max_iterations = max_iterations
+
+        self.params = [
+            self.confidence ,
+            self.max_trials,
+            self.tolerance ,
+            self.max_iterations,
+            11
+        ]
+
+
+        self.lib = ctypes.CDLL('./twency48.so')
+        self.lib.get_MCTS_next_move.argtypes = (ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.POINTER(ctypes.c_double))
+        self.lib.get_MCTS_next_move.restype = ctypes.c_int
+
+        self.c_params = (ctypes.c_double * len(self.params))(*self.params)
+
+
+
+
+    def get_input(self, board:Board) -> Board.Move:
+        score = board.get_score()
+        tiles = board.get_tiles()
+        max_tile = math.log2(max(tiles))
+        
+        self.c_params[4] = max(max_tile + 1, 7)
+        print(self.c_params[4])
+        c_tiles = (ctypes.c_int * len(tiles))(*tiles)
+        result = self.lib.get_MCTS_next_move(c_tiles, score, self.c_params)
+        move = board.Move.UP
+        if result == 2:
+            move = Board.Move.UP
+        if result == 3:
+            move = Board.Move.DOWN
+        if result == 1:
+            move = Board.Move.LEFT
+        if result == 0:
+            move = Board.Move.RIGHT
+        # print(move)
+        return move

@@ -489,45 +489,6 @@ double KL_divergence(double p, double q){
     }
 }
 
-double compute_w_star(double* means, int best_arm_index, double tolerance, int max_iterations){
-    //computes the minimum sample complexity to identify best arm with confidence level (1-delta) using bisection method
-
-    double W_min = 0;
-    double W_max = 1;
-    double W_mid;
-    double KL_d;
-    double best_mean = means[best_arm_index];
-    bool feasible;
-    
-
-    for(int i = 0; i < max_iterations; i ++){
-        W_mid = (W_min + W_max)/2.0;
-        feasible = true;
-        for(int j = 0; j < 4; j++){
-            if(j != best_arm_index){
-                KL_d = KL_divergence(best_mean, means[j]);
-                if(KL_d == 0 || W_mid * KL_d > 1){
-                    feasible = false;
-                    printf("%d\n", i);
-                    break;
-                }
-            }
-        }
-
-        if(feasible){
-            W_min = W_mid; // increase W_min to find max feasible
-        }
-        else{
-            W_max = W_mid; // reduce to find max feasible
-        }
-
-        if (W_max - W_min < tolerance){
-            printf("%d\n", i);
-            break;
-        }
-    }
-    return W_min;
-}
 void place_random_tile(Board* board){
     // place a tile in a randomly selected empty square
     
@@ -569,10 +530,164 @@ bool run_trial_until_win(Board* board, Move move, int stop){
       
     }
 }
+double Ifonc(double alpha, double m1, double m2){
+    if (alpha == 0 || alpha == 1){return 0;}
 
-void optimal_weights(double *w, double *means, double w_tolerance){
-    // get the values for w*
+    double mid = alpha*m1 + (1-alpha)*m2;
+
+    return alpha*KL_divergence(m1, mid)+(1-alpha)*KL_divergence(m2, mid);
+}
+double g(double x, int k, double* means){
+    double cost = 0;
+    double n1 = 1/(1+x);
+    double n2 = x/(1+x);
+    if( n1 == 0 && n2==0){cost = 0;}
+    else{
+        cost = (n1+n2)*Ifonc(n1/(n1+n2), means[0], means[k]);
+    }
+    return cost;
+}
+double dico_solve_g(double xmin, double xmax, double delta, double* means, int k){
+    double min = xmin;
+    double max = xmax;
+    double mid;
+
+    double res = g(min, k, means);
+    while(max-min>delta){
+        mid = (max+min)/2;
+        if(g(mid, k, means)* res > 0){min = mid;}
+        else{max=mid;}
+    }
+    return (max+min)/2;
+
+}
+
+double xk_of_y(double y, int k, double* means, double delta){
+    double xMax = 1;
+    while(g(xMax, k, means) < 0){
+        xMax = 2*xMax;
+    }
+    return dico_solve_g(0, xMax, delta, means, k);
+}
+
+
+double aux(double y, double* means, double delta){
+    double x[3];
+    double m[3];
+    for(int i = 0; i < 3; i++){
+        x[i] = xk_of_y(y, i+1, means, delta);
+    }
+    for(int i = 0; i < 3; i++){
+        m[i] = (means[0] + x[i]*means[i+1])/x[i];
+    }
+    double sum = 0;
+    for(int i = 0; i < 3; i++){
+        sum += KL_divergence(means[0], m[i])/KL_divergence(means[i+1], m[i]);
+    }
+    return sum - 1;
+}
+
+double dico_solve_aux(double ymin, double ymax, double delta, double* means){
+    double min = ymin;
+    double max = ymax;
+    double mid;
+
+    double res = aux(min, means, delta);
+    while(max-min>delta){
+        mid = (max+min)/2;
+        if(aux(mid, means, delta)* res > 0){min = mid;}
+        else{max=mid;}
+    }
+    return (max+min)/2;
+}
+
+
+void one_step_opt(double* w, double* means, double delta){
+    double yMax=0.5;
+    double y;
+    double x[4] = {1,0,0,0};
+    double sum = 1;
+
+    if(isinf(KL_divergence(means[0], means[1]))){
+        while(aux(yMax, means, delta) < 0){
+            yMax = yMax*2;
+        }
+    }
+    else{yMax = KL_divergence(means[0], means[1]);}
+
+    y = dico_solve_aux(0, yMax, delta, means);
     
+    for(int i = 1; i < 4; i++){
+        x[i] = xk_of_y(y, i, means, delta);
+        sum += x[i];
+    }
+    for(int i = 0; i < 4; i++){
+        w[i] = x[i]/sum;
+    }
+    
+}
+
+
+int compare_function(const void *a,const void *b) {
+    double *x = (double *) a;
+    double *y = (double *) b;
+    // return *x - *y; // this is WRONG...
+    if (x[0] < y[0]) return -1;
+    else if (x[0] > y[0]) return 1; return 0;
+}
+
+void optimal_weights(double *w, double *means, double delta){
+    // get the values for w*
+    int num_max_arms;
+    int max_arms[4]; // refers to moves [0...3]
+    double max_arm_val;
+
+    num_max_arms = 1;
+    max_arm_val = means[0];
+    max_arms[0] = 0;
+    for(int i = 1; i < 4; i++){
+        if(means[i] > max_arm_val){
+            num_max_arms = 1;
+            max_arm_val = means[i];
+            max_arms[0] = i;
+        }
+        else if(means[i] == max_arm_val){
+            max_arms[num_max_arms] = i;
+            num_max_arms++; 
+        }
+    }
+
+    if(num_max_arms>1){
+        //if multiple max arms, set max arms to uniform dist
+        for(int i = 0; i < 4; i ++){
+            w[i] = 0;
+        }
+        for(int i = 0; i < num_max_arms; i ++){
+            w[max_arms[i]] = 1.0/(double)num_max_arms;
+        }
+        return;
+    }
+
+    double sorted_means[4][2]; // stores mean and original index
+    for(int i = 0; i < 4; i ++){
+        sorted_means[i][0] = means[i];
+        sorted_means[i][1] = i;
+    }
+
+    qsort(sorted_means, 4, sizeof(sorted_means[0]), compare_function);
+
+    // sort mu
+    for(int i = 0; i < 4; i ++){
+        means[i] = sorted_means[i][0];
+    }
+
+    one_step_opt(w, means, delta);
+
+    // return to original order
+    for(int i = 0; i < 4; i ++){
+        w[(int)sorted_means[i][1]] = w[i];
+    }
+
 }
 int track_and_stop(Board* board, double* params){
     // track and stop algorithm described by Garivier and Kaufmann 2016
@@ -702,7 +817,7 @@ int track_and_stop(Board* board, double* params){
         continue;
         
     }
-    return 0;
+    return best;
 
     
 
@@ -718,6 +833,19 @@ int get_MCTS_next_move(int* tiles, int score, double* params){
         [4]: int: value for 'win' condition in exp value
      returns the best move from this state
     */
+
+
+    char powertiles[16];
+    intrep_to_powerrep(powertiles, tiles);
+
+    Board b; 
+    for(int i =  0; i < 16; i ++){
+        b.tiles[i] = powertiles[i];
+    }
+    b.score = score;
+
+    
+    return track_and_stop(&b, params);
 }
 
 
@@ -726,11 +854,8 @@ int main(){
     int best = 1;
     double tolerance = 1e-5;
     int max_iter = 10000;
+    double params[5] ={0.9999, 10000, 1e-11, 10000, 10};
 
-    printf("%f\n", compute_w_star(means, 0, tolerance, max_iter));
-    printf("%f\n", compute_w_star(means, 1, tolerance, max_iter));
-    printf("%f\n", compute_w_star(means, 2, tolerance, max_iter));
-    printf("%f\n", compute_w_star(means, 3, tolerance, max_iter));
     srand(time(NULL));
 
     Board b1 = {
@@ -751,7 +876,8 @@ int main(){
     };
     printf("%d\n", run_trial_until_win(&b1, 0, 8));
     }
-    
+    printf("best move: %d\n", get_MCTS_next_move((int * )b1.tiles, b1.score, params));
+
 
     return 1;
 

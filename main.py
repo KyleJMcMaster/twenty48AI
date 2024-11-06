@@ -97,10 +97,7 @@ def demo():
     if len(sys.argv) == 1:
         results = []
         while True:
-            g = Game(input=ExpectiMax7(   path_pen=  4.867849091965325,
-                                    loss_penalty= 10.0,
-                                    score_factor= 1.8550993194153875,
-                                    depth = 6), display=display)
+            g = Game(input=MCTS(), display=display)
             result = g.play_game()
             results.append([result.score, result.turns[-1].max_tile])
             print([result.score, result.turns[-1].max_tile])
