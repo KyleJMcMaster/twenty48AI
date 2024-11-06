@@ -702,6 +702,7 @@ int track_and_stop(Board* board, double* params){
     double w_tolerance = params[2];
     int max_w_iterations = (int) params[3];
     int win_threshold = (int) params[4];
+    int base_runs = (int) params[5];
     
     int num_max_arms;
     int max_arms[k]; // refers to moves [0...3]
@@ -728,12 +729,17 @@ int track_and_stop(Board* board, double* params){
 
     //step 0: run first trial
     for(int i = 0; i < k; i++){
-        n[i] = 1;
+
         S[i] = run_trial_until_win(board, valid_moves[i], win_threshold);
-        means[i] = S[i];
+        for(int r = 1; r < base_runs; r++){
+            S[i] += run_trial_until_win(board, valid_moves[i], win_threshold);
+        }
+        n[i] = base_runs;
+        
+        means[i] = (double)S[i]/(double)n[i];
     }
 
-    for(int t = k; t < max_trials; t++){
+    for(int t = k * base_runs; t < max_trials; t++){
         // step 1: find empirical best arm(s)
         num_max_arms = 1;
         max_arm_val = means[0];
@@ -757,7 +763,7 @@ int track_and_stop(Board* board, double* params){
             t+=1;
             S[best_index] += run_trial_until_win(board, valid_moves[best_index], win_threshold);
             n[best_index]++;
-            means[best_index] = S[best_index]/n[best_index];
+            means[best_index] = (double)S[best_index]/(double)n[best_index];
             continue;
         }
         //otherwise, check stopping statistic
@@ -783,7 +789,7 @@ int track_and_stop(Board* board, double* params){
             for(int i = 0; i < k; i ++){
                 printf("%f, ", means[i]);
             }
-            printf("\n");
+            printf("\n time %d,\n", t);
             return valid_moves[best_index];
         }
 
@@ -803,7 +809,7 @@ int track_and_stop(Board* board, double* params){
             t+=1;
             S[best_index] += run_trial_until_win(board, valid_moves[best_index], win_threshold);
             n[best_index]++;
-            means[best_index] = S[best_index]/n[best_index];
+            means[best_index] = (double)S[best_index]/(double)n[best_index];
             continue;
         }
         // optimal arm selection
@@ -822,7 +828,7 @@ int track_and_stop(Board* board, double* params){
         t+=1;
         S[best_index] += run_trial_until_win(board, valid_moves[best_index], win_threshold);
         n[best_index]++;
-        means[best_index] = S[best_index]/n[best_index];
+        means[best_index] = (double)S[best_index]/(double)n[best_index];
         continue;
         
     }
@@ -830,7 +836,7 @@ int track_and_stop(Board* board, double* params){
     for(int i = 0; i < k; i ++){
         printf("%f, ", means[i]);
     }
-    printf("\n");
+    printf("\n time %d,\n", max_trials);
     return valid_moves[best_index];
 
     
@@ -845,6 +851,7 @@ int get_MCTS_next_move(int* tiles, int score, double* params){
         [2]: double: tolerance for W*
         [3]: int: max iterations for W* if tolerance is not met
         [4]: int: value for 'win' condition in exp value
+        [5]: number of base runs to collect
      returns the best move from this state
     */
 

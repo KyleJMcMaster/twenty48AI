@@ -67,25 +67,39 @@ class WindowDisplay(Display):
 
 def eval_ai():
     
-    # ai_input=ExpectiMax7(   path_pen=   6.56164911529463,
-    #                         loss_penalty= 10.0,
-    #                         score_factor= 2.24397373076686,
-    #                         depth = 7)
-    # r = LightConcurrentReporter(ai_input, 100)
-    # report = pd.DataFrame(r.generate_report(), columns=['score','max_tile'])
-    # print(f'------------------')
-    # # print(report)
-    # print(np.mean(report['score']), len(report[report['max_tile']>=2048])/50.0)
-    # num_under_512 = len(report[report['max_tile']<512])
-    # num_over_1024 = len(report[report['max_tile']>=1024])
-    # num_over_2048 = len(report[report['max_tile']>=2048])
-    # num_over_4096 = len(report[report['max_tile']>=4096])
-    # num_over_8192 = len(report[report['max_tile']>=8192])
-    # print(f'Number of games under 512: {num_under_512}')
-    # print(f'Number of games over 1024: {num_over_1024}')
-    # print(f'Number of games over 2048: {num_over_2048}')
-    # print(f'Number of games over 4096: {num_over_4096}')
-    # print(f'Number of games over 8192: {num_over_8192}')
+    ai_input=ExpectiMax7(depth = 3)
+    r = LightConcurrentReporter(ai_input, 100)
+    report = pd.DataFrame(r.generate_report(), columns=['score','max_tile'])
+    print(f'------------------')
+    # print(report)
+    print(np.mean(report['score']), len(report[report['max_tile']>=2048])/50.0)
+    num_under_512 = len(report[report['max_tile']<512])
+    num_over_1024 = len(report[report['max_tile']>=1024])
+    num_over_2048 = len(report[report['max_tile']>=2048])
+    num_over_4096 = len(report[report['max_tile']>=4096])
+    num_over_8192 = len(report[report['max_tile']>=8192])
+    print(f'Number of games under 512: {num_under_512}')
+    print(f'Number of games over 1024: {num_over_1024}')
+    print(f'Number of games over 2048: {num_over_2048}')
+    print(f'Number of games over 4096: {num_over_4096}')
+    print(f'Number of games over 8192: {num_over_8192}')
+
+    ai_input=ExpectiMax7(depth = 4)
+    r = LightConcurrentReporter(ai_input, 100)
+    report = pd.DataFrame(r.generate_report(), columns=['score','max_tile'])
+    print(f'------------------')
+    # print(report)
+    print(np.mean(report['score']), len(report[report['max_tile']>=2048])/50.0)
+    num_under_512 = len(report[report['max_tile']<512])
+    num_over_1024 = len(report[report['max_tile']>=1024])
+    num_over_2048 = len(report[report['max_tile']>=2048])
+    num_over_4096 = len(report[report['max_tile']>=4096])
+    num_over_8192 = len(report[report['max_tile']>=8192])
+    print(f'Number of games under 512: {num_under_512}')
+    print(f'Number of games over 1024: {num_over_1024}')
+    print(f'Number of games over 2048: {num_over_2048}')
+    print(f'Number of games over 4096: {num_over_4096}')
+    print(f'Number of games over 8192: {num_over_8192}')
 
     ai_input=MCTS()
     r = LightConcurrentReporter(ai_input, 100)
@@ -150,6 +164,6 @@ def demo():
 
 
 if __name__ =='__main__':
-    eval_ai()
-    # demo()
+    #eval_ai()
+    demo()
     # tune_params()

@@ -589,19 +589,22 @@ class MCTS(AI):
     def __init__(self, 
                  confidence = 0.9999,
                  max_trials = 100000,
-                 tolerance = 1e-11,
-                 max_iterations =100000):
+                 tolerance = 1e-4,
+                 max_iterations =100000,
+                 base_runs = 100):
         self.confidence =confidence
         self.max_trials =max_trials
         self.tolerance =tolerance
         self.max_iterations = max_iterations
+        self.base_runs = base_runs
 
         self.params = [
             self.confidence ,
             self.max_trials,
             self.tolerance ,
             self.max_iterations,
-            11
+            11,
+            self.base_runs
         ]
 
 
@@ -619,7 +622,7 @@ class MCTS(AI):
         tiles = board.get_tiles()
         max_tile = math.log2(max(tiles))
         
-        self.c_params[4] = max(max_tile + 1, 6)
+        self.c_params[4] = max(max_tile + 1, 7)
         c_tiles = (ctypes.c_int * len(tiles))(*tiles)
         result = self.lib.get_MCTS_next_move(c_tiles, score, self.c_params)
         move = board.Move.UP
