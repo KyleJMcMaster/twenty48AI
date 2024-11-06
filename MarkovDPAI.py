@@ -587,8 +587,8 @@ class ExpectiMax7(AI):
 class MCTS(AI):
 
     def __init__(self, 
-                 confidence = 0.99,
-                 max_trials = 1000000,
+                 confidence = 0.9999,
+                 max_trials = 100000,
                  tolerance = 1e-11,
                  max_iterations =100000):
         self.confidence =confidence
@@ -619,8 +619,7 @@ class MCTS(AI):
         tiles = board.get_tiles()
         max_tile = math.log2(max(tiles))
         
-        self.c_params[4] = max(max_tile + 1, 7)
-        print(self.c_params[4])
+        self.c_params[4] = max(max_tile + 1, 6)
         c_tiles = (ctypes.c_int * len(tiles))(*tiles)
         result = self.lib.get_MCTS_next_move(c_tiles, score, self.c_params)
         move = board.Move.UP

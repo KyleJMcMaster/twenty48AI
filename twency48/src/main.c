@@ -513,20 +513,20 @@ bool run_trial_until_win(Board* board, Move move, int stop){
 
     while(true){
         int valid_moves[4];
-        int num_valid_moves = get_valid_moves(board, valid_moves);
+        int num_valid_moves = get_valid_moves(&b2, valid_moves);
         
         if(!num_valid_moves){
             return 0;
         }
         next_move = valid_moves[rand() % (num_valid_moves)];      
-        apply_move(board, next_move);
+        apply_move(&b2, next_move);
         
         for(int i = 0; i < 16; i++){
-            if (board->tiles[i] >= stop){
+            if (b2.tiles[i] >= stop){
                 return 1;
             }
         }
-        place_random_tile(board);
+        place_random_tile(&b2);
       
     }
 }
@@ -571,57 +571,58 @@ double xk_of_y(double y, int k, double* means, double delta){
 }
 
 
-double aux(double y, double* means, double delta){
-    double x[3];
-    double m[3];
-    for(int i = 0; i < 3; i++){
+double aux(double y, double* means, double delta, int k){
+    double x[k-1];
+    double m[k-1];
+    for(int i = 0; i < k-1; i++){
         x[i] = xk_of_y(y, i+1, means, delta);
     }
-    for(int i = 0; i < 3; i++){
+    for(int i = 0; i < k-1; i++){
         m[i] = (means[0] + x[i]*means[i+1])/x[i];
     }
     double sum = 0;
-    for(int i = 0; i < 3; i++){
+    for(int i = 0; i < k-1; i++){
         sum += KL_divergence(means[0], m[i])/KL_divergence(means[i+1], m[i]);
     }
     return sum - 1;
 }
 
-double dico_solve_aux(double ymin, double ymax, double delta, double* means){
+double dico_solve_aux(double ymin, double ymax, double delta, double* means, int k){
     double min = ymin;
     double max = ymax;
     double mid;
 
-    double res = aux(min, means, delta);
+    double res = aux(min, means, delta, k);
     while(max-min>delta){
         mid = (max+min)/2;
-        if(aux(mid, means, delta)* res > 0){min = mid;}
+        if(aux(mid, means, delta, k)* res > 0){min = mid;}
         else{max=mid;}
     }
     return (max+min)/2;
 }
 
 
-void one_step_opt(double* w, double* means, double delta){
+void one_step_opt(double* w, double* means, double delta, int k){
     double yMax=0.5;
     double y;
-    double x[4] = {1,0,0,0};
+    double x[k];
     double sum = 1;
 
+    x[0] = 1;
     if(isinf(KL_divergence(means[0], means[1]))){
-        while(aux(yMax, means, delta) < 0){
+        while(aux(yMax, means, delta,k) < 0){
             yMax = yMax*2;
         }
     }
     else{yMax = KL_divergence(means[0], means[1]);}
 
-    y = dico_solve_aux(0, yMax, delta, means);
+    y = dico_solve_aux(0, yMax, delta, means,k);
     
-    for(int i = 1; i < 4; i++){
+    for(int i = 1; i < k; i++){
         x[i] = xk_of_y(y, i, means, delta);
         sum += x[i];
     }
-    for(int i = 0; i < 4; i++){
+    for(int i = 0; i < k; i++){
         w[i] = x[i]/sum;
     }
     
@@ -636,16 +637,16 @@ int compare_function(const void *a,const void *b) {
     else if (x[0] > y[0]) return 1; return 0;
 }
 
-void optimal_weights(double *w, double *means, double delta){
+void optimal_weights(double *w, double *means, double delta, int k){
     // get the values for w*
     int num_max_arms;
-    int max_arms[4]; // refers to moves [0...3]
+    int max_arms[k]; // refers to moves [0...3]
     double max_arm_val;
 
     num_max_arms = 1;
     max_arm_val = means[0];
     max_arms[0] = 0;
-    for(int i = 1; i < 4; i++){
+    for(int i = 1; i < k; i++){
         if(means[i] > max_arm_val){
             num_max_arms = 1;
             max_arm_val = means[i];
@@ -659,7 +660,7 @@ void optimal_weights(double *w, double *means, double delta){
 
     if(num_max_arms>1){
         //if multiple max arms, set max arms to uniform dist
-        for(int i = 0; i < 4; i ++){
+        for(int i = 0; i < k; i ++){
             w[i] = 0;
         }
         for(int i = 0; i < num_max_arms; i ++){
@@ -669,46 +670,48 @@ void optimal_weights(double *w, double *means, double delta){
     }
 
     double sorted_means[4][2]; // stores mean and original index
-    for(int i = 0; i < 4; i ++){
+    for(int i = 0; i < k; i ++){
         sorted_means[i][0] = means[i];
         sorted_means[i][1] = i;
     }
 
-    qsort(sorted_means, 4, sizeof(sorted_means[0]), compare_function);
+    qsort(sorted_means, k, sizeof(sorted_means[0]), compare_function);
 
     // sort mu
-    for(int i = 0; i < 4; i ++){
+    for(int i = 0; i < k; i ++){
         means[i] = sorted_means[i][0];
     }
 
-    one_step_opt(w, means, delta);
+    one_step_opt(w, means, delta, k);
 
     // return to original order
-    for(int i = 0; i < 4; i ++){
+    for(int i = 0; i < k; i ++){
         w[(int)sorted_means[i][1]] = w[i];
     }
 
 }
 int track_and_stop(Board* board, double* params){
     // track and stop algorithm described by Garivier and Kaufmann 2016
-    int n[4] = {0,0,0,0};
-    double means[4] = {0,0,0,0};
-    int S[4] = {0,0,0,0};
+    int valid_moves[4];
+    int k = get_valid_moves(board, valid_moves);
+    int n[k];
+    double means[k];
+    int S[k];
     double confidence = params[0];
-    int max_trials = params[1];
+    int max_trials = (int) params[1];
     double w_tolerance = params[2];
-    int max_w_iterations = params[3];
-    int win_threshold = params[4];
+    int max_w_iterations = (int) params[3];
+    int win_threshold = (int) params[4];
     
     int num_max_arms;
-    int max_arms[4]; // refers to moves [0...3]
+    int max_arms[k]; // refers to moves [0...3]
     double max_arm_val;
-    Move best;
+    int best_index;
     //step1
     int n_best;
     int s_best;
     double mean_best;
-    double avg_means[4];
+    double avg_means[k];
     //step2
     double min_score;
     double score;
@@ -716,25 +719,26 @@ int track_and_stop(Board* board, double* params){
     int min_n;
     int min_n_index;
     double exploration_threshold;
-    double w[4];
+    double w[k];
     int max_score_index;
     int max_score;
 
     srand(time(NULL));
+    if (k == 1){return valid_moves[0];}
 
     //step 0: run first trial
-    for(int i = 0; i < 4; i++){
+    for(int i = 0; i < k; i++){
         n[i] = 1;
-        S[i] = run_trial_until_win(board, i, win_threshold);
+        S[i] = run_trial_until_win(board, valid_moves[i], win_threshold);
         means[i] = S[i];
     }
 
-    for(int t = 4; t < max_trials; t++){
+    for(int t = k; t < max_trials; t++){
         // step 1: find empirical best arm(s)
         num_max_arms = 1;
         max_arm_val = means[0];
         max_arms[0] = 0;
-        for(int i = 1; i < 4; i++){
+        for(int i = 1; i < k; i++){
             if(means[i] > max_arm_val){
                 num_max_arms = 1;
                 max_arm_val = means[i];
@@ -745,37 +749,42 @@ int track_and_stop(Board* board, double* params){
                 num_max_arms++; 
             }
         }
-        best = max_arms[0]; // index of best arm
+        best_index = max_arms[0]; // index of best arm
 
         //if multiple best arms, draw one at random, no need to check stopping statistic
         if(num_max_arms>1){
-            best = max_arms[rand() % (num_max_arms)];
+            best_index = max_arms[rand() % (num_max_arms)];
             t+=1;
-            S[best] += run_trial_until_win(board, best, win_threshold);
-            n[best]++;
-            means[best] = S[best]/n[best];
+            S[best_index] += run_trial_until_win(board, valid_moves[best_index], win_threshold);
+            n[best_index]++;
+            means[best_index] = S[best_index]/n[best_index];
             continue;
         }
         //otherwise, check stopping statistic
         // step 2: calculate stopping statistic
         
-        mean_best = means[best];
-        n_best = n[best];
+        mean_best = means[best_index];
+        n_best = n[best_index];
 
-        for(int i = 0; i < 4; i++){
+        for(int i = 0; i < k; i++){
             avg_means[i] = (means[i] + mean_best)/2;
         }
 
         min_score = INFINITY;
-        for(int i = 0; i < 4; i ++){
-            if(i == best){continue;} // skip best
+        for(int i = 0; i < k; i ++){
+            if(i == best_index){continue;} // skip best
             score = n_best*KL_divergence(mean_best, avg_means[i]) + n[i]*KL_divergence(means[i], avg_means[i]);
             min_score = (score < min_score) ? score : min_score;
         }
 
-        if(min_score > log(6*t/confidence)){ //log((log(t)+1)/delta) is alternative stopping point
+        if(min_score > log(2*t*(k-1)/confidence)){ //log((log(t)+1)/delta) is alternative stopping point
             // stop
-            return best;
+            printf("Min Score _thresh met: %f\n", min_score);
+            for(int i = 0; i < k; i ++){
+                printf("%f, ", means[i]);
+            }
+            printf("\n");
+            return valid_moves[best_index];
         }
 
         // step 3: pick arm to sample
@@ -790,34 +799,39 @@ int track_and_stop(Board* board, double* params){
         }
         if(min_n < exploration_threshold){
             // enter forced exploration
-            best = min_n_index;
+            best_index = min_n_index;
             t+=1;
-            S[best] += run_trial_until_win(board, best, win_threshold);
-            n[best]++;
-            means[best] = S[best]/n[best];
+            S[best_index] += run_trial_until_win(board, valid_moves[best_index], win_threshold);
+            n[best_index]++;
+            means[best_index] = S[best_index]/n[best_index];
             continue;
         }
         // optimal arm selection
 
-        optimal_weights(w, means, w_tolerance);
+        optimal_weights(w, means, w_tolerance, k);
         max_score_index = 0;
         max_score = w[0] - (double)n[0]/(double)t;
         for(int i = 1; i < 4; i++){
             score = w[i] - (double)n[i]/(double)t;
-            if(max_score < w[i] - (double)n[i]/(double)t){
+            if(max_score < score){
                 max_score = score;
                 max_score_index = i;
             }
         }
-        best = max_score_index;
+        best_index = max_score_index;
         t+=1;
-        S[best] += run_trial_until_win(board, best, win_threshold);
-        n[best]++;
-        means[best] = S[best]/n[best];
+        S[best_index] += run_trial_until_win(board, valid_moves[best_index], win_threshold);
+        n[best_index]++;
+        means[best_index] = S[best_index]/n[best_index];
         continue;
         
     }
-    return best;
+    printf("Min Score: %f\n", min_score);
+    for(int i = 0; i < k; i ++){
+        printf("%f, ", means[i]);
+    }
+    printf("\n");
+    return valid_moves[best_index];
 
     
 
