@@ -555,6 +555,7 @@ class ExpectiMax7(AI):
             self.loss_penalty,
             self.score_factor
         ]
+        
 
 
         self.lib = ctypes.CDLL('./twency48.so')
@@ -584,33 +585,30 @@ class ExpectiMax7(AI):
         # print(move)
         return move
     
-class MCTS(AI):
+class ExpectiMax8(AI):
 
-    def __init__(self, 
-                 confidence = 0.9999,
-                 max_trials = 100000,
-                 tolerance = 1e-4,
-                 max_iterations =100000,
-                 base_runs = 100):
-        self.confidence =confidence
-        self.max_trials =max_trials
-        self.tolerance =tolerance
-        self.max_iterations = max_iterations
-        self.base_runs = base_runs
+    def __init__(self, depth=6, path_pen=10.282501707392333, loss_penalty = 0.0, score_factor=4.480025944804589, num_trials=200):
+        self.loss_penalty = loss_penalty
+        self.depth = depth
+        self.position_penalty = 0
+        self.path_penalty_factor = path_pen
+        self.empty_space_pen = 0
+        self.score_factor = score_factor
+
 
         self.params = [
-            self.confidence ,
-            self.max_trials,
-            self.tolerance ,
-            self.max_iterations,
-            11,
-            self.base_runs
+            self.depth,
+            self.path_penalty_factor,
+            self.loss_penalty,
+            self.score_factor,
+            num_trials
         ]
+        
 
 
         self.lib = ctypes.CDLL('./twency48.so')
-        self.lib.get_MCTS_next_move.argtypes = (ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.POINTER(ctypes.c_double))
-        self.lib.get_MCTS_next_move.restype = ctypes.c_int
+        self.lib.get_next_move1.argtypes = (ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.POINTER(ctypes.c_double))
+        self.lib.get_next_move1.restype = ctypes.c_int
 
         self.c_params = (ctypes.c_double * len(self.params))(*self.params)
 
@@ -620,10 +618,82 @@ class MCTS(AI):
     def get_input(self, board:Board) -> Board.Move:
         score = board.get_score()
         tiles = board.get_tiles()
-        max_tile = math.log2(max(tiles))
         
-        self.c_params[4] = max(max_tile + 1, 7)
         c_tiles = (ctypes.c_int * len(tiles))(*tiles)
+        result = self.lib.get_next_move1(c_tiles, score, self.c_params)
+        move = board.Move.UP
+        if result == 2:
+            move = Board.Move.UP
+        if result == 3:
+            move = Board.Move.DOWN
+        if result == 1:
+            move = Board.Move.LEFT
+        if result == 0:
+            move = Board.Move.RIGHT
+        # print(move)
+        return move
+    
+class MCTS(AI):
+
+    def __init__(self, 
+                 confidence = 0.99,
+                 max_trials = 80000,
+                 tolerance = 1e-3,
+                 max_iterations =100000,
+                 base_runs = 200,
+                 turns_0 = 40,
+                 turns_512 = 30,
+                 turns_1024 = 20,
+                 turns_2048 = 20,
+                 turns_4096 = 15,):
+        self.confidence =confidence
+        self.max_trials =max_trials
+        self.tolerance =tolerance
+        self.max_iterations = max_iterations
+        self.base_runs = base_runs
+        self.turns_512 = turns_512
+        self.turns_1024 = turns_1024
+        self.turns_2048 = turns_2048
+        self.turns_4096 = turns_4096
+        self.turns = turns_0
+
+        self.params = [
+            self.confidence ,
+            self.max_trials,
+            self.tolerance ,
+            self.max_iterations,
+            11,
+            self.base_runs,
+            self.turns
+        ]
+
+
+        self.lib = ctypes.CDLL('./twency48.so')
+        self.lib.get_MCTS_next_move.argtypes = (ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.POINTER(ctypes.c_double))
+        self.lib.get_MCTS_next_move.restype = ctypes.c_int
+
+
+
+
+
+    def get_input(self, board:Board) -> Board.Move:
+        score = board.get_score()
+        tiles = board.get_tiles()
+        max_tile = max(tiles)
+        
+        # set win params
+        # self.c_params[4] = max(max_tile + 1, 7)
+        if max_tile == 512:
+            self.turns = self.turns_512
+        elif max_tile == 1024:
+            self.turns = self.turns_1024
+        elif max_tile == 2048:
+            self.turns = self.turns_2048
+        elif max_tile == 4096:
+            self.turns = self.turns_4096
+
+        c_tiles = (ctypes.c_int * len(tiles))(*tiles)
+        self.c_params = (ctypes.c_double * len(self.params))(*self.params)
         result = self.lib.get_MCTS_next_move(c_tiles, score, self.c_params)
         move = board.Move.UP
         if result == 2:
@@ -636,3 +706,155 @@ class MCTS(AI):
             move = Board.Move.RIGHT
         # print(move)
         return move
+    
+
+class MCTS1(AI):
+
+    def __init__(self, 
+                 confidence = 0.99,
+                 max_trials = 80000,
+                 tolerance = 1e-3,
+                 max_iterations =100000,
+                 base_runs = 200,
+                 ):
+        self.confidence =confidence
+        self.max_trials =max_trials
+        self.tolerance =tolerance
+        self.max_iterations = max_iterations
+        self.base_runs = base_runs
+        
+
+        self.params = [
+            self.confidence ,
+            self.max_trials,
+            self.tolerance ,
+            self.max_iterations,
+            11,
+            self.base_runs,
+        ]
+
+
+        self.lib = ctypes.CDLL('./twency48.so')
+        self.lib.get_MCTS_next_move1.argtypes = (ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.POINTER(ctypes.c_double))
+        self.lib.get_MCTS_next_move1.restype = ctypes.c_int
+
+
+
+
+
+    def get_input(self, board:Board) -> Board.Move:
+        score = board.get_score()
+        tiles = board.get_tiles()
+        max_tile = max(tiles)
+        
+        # set win params
+        # self.c_params[4] = max(max_tile + 1, 7)
+        
+
+        c_tiles = (ctypes.c_int * len(tiles))(*tiles)
+        self.c_params = (ctypes.c_double * len(self.params))(*self.params)
+        result = self.lib.get_MCTS_next_move1(c_tiles, score, self.c_params)
+        move = board.Move.UP
+        if result == 2:
+            move = Board.Move.UP
+        if result == 3:
+            move = Board.Move.DOWN
+        if result == 1:
+            move = Board.Move.LEFT
+        if result == 0:
+            move = Board.Move.RIGHT
+        # print(move)
+        return move
+
+class MCTS2(AI):
+
+    def __init__(self, 
+                 game_runs = 100
+                 ):
+        self.game_runs = game_runs
+
+        self.params = [
+            self.game_runs
+        ]
+
+
+        self.lib = ctypes.CDLL('./twency48.so')
+        self.lib.get_MCTS_next_move2.argtypes = (ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.POINTER(ctypes.c_double))
+        self.lib.get_MCTS_next_move2.restype = ctypes.c_int
+
+
+
+
+
+    def get_input(self, board:Board) -> Board.Move:
+        score = board.get_score()
+        tiles = board.get_tiles()
+        max_tile = max(tiles)
+        
+        # set win params
+        # self.c_params[4] = max(max_tile + 1, 7)
+        
+
+        c_tiles = (ctypes.c_int * len(tiles))(*tiles)
+        self.c_params = (ctypes.c_double * len(self.params))(*self.params)
+        result = self.lib.get_MCTS_next_move2(c_tiles, score, self.c_params)
+        move = board.Move.UP
+        if result == 2:
+            move = Board.Move.UP
+        if result == 3:
+            move = Board.Move.DOWN
+        if result == 1:
+            move = Board.Move.LEFT
+        if result == 0:
+            move = Board.Move.RIGHT
+        # print(move)
+        return move
+    
+class MCTS3(AI):
+
+    def __init__(self, 
+                 game_runs = 100
+                 ):
+        self.game_runs = game_runs
+
+        self.params = [
+            3,
+            10.282501707392333,
+            0,
+            4.480025944804589,
+            self.game_runs
+        ]
+
+
+        self.lib = ctypes.CDLL('./twency48.so')
+        self.lib.get_MCTS_next_move3.argtypes = (ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.POINTER(ctypes.c_double))
+        self.lib.get_MCTS_next_move3.restype = ctypes.c_int
+
+
+
+
+
+    def get_input(self, board:Board) -> Board.Move:
+        score = board.get_score()
+        tiles = board.get_tiles()
+        max_tile = max(tiles)
+        
+        # set win params
+        # self.c_params[4] = max(max_tile + 1, 7)
+        
+
+        c_tiles = (ctypes.c_int * len(tiles))(*tiles)
+        self.c_params = (ctypes.c_double * len(self.params))(*self.params)
+        result = self.lib.get_MCTS_next_move3(c_tiles, score, self.c_params)
+        move = board.Move.UP
+        if result == 2:
+            move = Board.Move.UP
+        if result == 3:
+            move = Board.Move.DOWN
+        if result == 1:
+            move = Board.Move.LEFT
+        if result == 0:
+            move = Board.Move.RIGHT
+        # print(move)
+        return move
+    
