@@ -16,7 +16,7 @@ Run with `python3 main.py`.
 This is a package I made that contains the base game, with a flexible interface for changing the display and inputs [twenty48](https://github.com/KyleJMcMaster/twenty48/blob/main/src/twenty48/Board.py)
 
 
-If running on windows, recompile the c agent as a .dll and modify the code in `MarkovDPAI.py` in class `Expectimax7`
+If running on windows, recompile the c agent as a .dll and modify the code in `MarkovDPAI.py` in class `Expectimax7` or `Expectimax8`
 
 ## Extra info
 
