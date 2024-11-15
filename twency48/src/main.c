@@ -413,7 +413,7 @@ double estimate_score1(Board* board, double* params){
     [4]: num_trials
     */
     double score = 0;
-    int num_trials = 400;
+    int num_trials = params[4];
     int valid_moves[4];
     int k = get_valid_moves(board, valid_moves);
 

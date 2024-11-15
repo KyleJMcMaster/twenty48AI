@@ -587,13 +587,14 @@ class ExpectiMax7(AI):
     
 class ExpectiMax8(AI):
 
-    def __init__(self, depth=6, path_pen=10.282501707392333, loss_penalty = 0.0, score_factor=4.480025944804589, num_trials=200):
+    def __init__(self, depth = 7, path_pen=0.45127922428126166, loss_penalty=12.544226964630045, score_factor=0.12761368167679277, num_trials=1000):
         self.loss_penalty = loss_penalty
         self.depth = depth
         self.position_penalty = 0
         self.path_penalty_factor = path_pen
         self.empty_space_pen = 0
         self.score_factor = score_factor
+        self.num_trials = num_trials
 
 
         self.params = [
@@ -601,7 +602,7 @@ class ExpectiMax8(AI):
             self.path_penalty_factor,
             self.loss_penalty,
             self.score_factor,
-            num_trials
+            self.num_trials
         ]
         
 
@@ -618,6 +619,18 @@ class ExpectiMax8(AI):
     def get_input(self, board:Board) -> Board.Move:
         score = board.get_score()
         tiles = board.get_tiles()
+        max_tile = max(tiles)
+        if(max_tile==2048):
+            self.params[0] = self.depth + 8
+            self.params[4] = self.num_trials*6
+        elif(max_tile==4096):
+            self.params[0] = self.depth + 16
+            self.params[4] = self.num_trials*20
+        elif(max_tile>4096):
+            self.params[0] = self.depth + 18
+            self.params[4] = self.num_trials*30
+
+        # print(max_tile, self.params)
         
         c_tiles = (ctypes.c_int * len(tiles))(*tiles)
         result = self.lib.get_next_move1(c_tiles, score, self.c_params)
